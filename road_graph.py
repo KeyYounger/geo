@@ -2,6 +2,8 @@ import networkx as nx
 import osmnx as ox
 import pandas as pd
 import os
+import pickle as pkl
+import numpy as np
 
 """
 默认参数是美国旧金山SanFrancisco
@@ -12,6 +14,7 @@ import os
 # 根据边界框下载数据
 def download_map(north=37.8009, south=37.7802, east=-122.4462, west=-122.4011):
     G = ox.graph_from_bbox(north, south, east, west, network_type="drive")
+    # fig, ax = ox.plot_graph(G)
     return G
 
 
@@ -72,7 +75,63 @@ def road_graph(road_df, out_path="data/road_graph.gml"):
     return G
 
 
+def extract_road_adj(G=None, road_list=None):
+    file_path = 'data/road_adj.pkl'
+    if os.path.exists(file_path):
+        print('Road adj exists')
+        with open(file_path, 'rb') as f:
+            road_adj = pkl.load(f)
+    else:
+        print('Extracting road adj from graph')
+
+        from road_graph import road_graph
+        # G = road_graph(road_df=None, out_path='data/road_graph.gml', update=False)
+        G = nx.read_gml('data/road_graph.gml')
+        G = nx.relabel_nodes(G, int)
+        road_adj = np.zeros((len(G.nodes), len(G.nodes)), dtype=np.float64)
+
+        from road_graph import get_road_list
+        road_list = get_road_list()
+
+        def road_index(road_id):
+            return road_list[road_list['road_id'] == road_id].index[0]
+
+        # masked exponential kernel. Set lambda = 1.
+        lambda_ = 1
+        # lambda: for future consideration
+        # total_weight = 0
+        # total_count = 0
+
+        # for O in list(G.nodes):
+        #     for D in list(G.successors(O)):
+        #         total_weight += G.edges[O, D]['weight']
+        #         total_count += 1
+
+        # lambda_ = total_weight / total_count
+        for O in list(G.nodes):
+            for D in list(G.successors(O)):
+                road_adj[road_index(O), road_index(D)] = lambda_ * np.exp(- lambda_ * G.edges[O, D]['weight'])
+
+        with open(file_path, 'wb') as f:
+            pkl.dump(road_adj, f)
+
+    return road_adj
+
+
 if __name__ == '__main__':
-    road_df = gen_road_df(download_map(30.6844, 30.6397, 104.0925, 104.0414))
-    get_road_list(road_df, out_path='data/cd_road_list.csv')
-    road_graph(road_df, out_path="data/cd_road_graph.gml")
+    # road_df = gen_road_df(download_map(30.6844, 30.6397, 104.0925, 104.0414))
+    road_df = gen_road_df(download_map())
+    road = download_map()
+    gdf_nodes, gdf_edges = ox.graph_to_gdfs(road)
+    print(gdf_nodes)
+    # print(gdf_edges.loc[(65352459, 65295342, 0)])
+    # print(gdf_edges.loc[gdf_edges['name']=='Van Ness Avenue'])
+    # print(gdf_edges['highway'])
+
+    # print(gdf_edges)
+    # get_road_list(road_df, out_path='data/cd_road_list.csv')
+    get_road_list(road_df)
+    # road_graph(road_df, out_path="data/cd_road_graph.gml")
+    G = road_graph(road_df)
+    print(G.number_of_nodes())
+    print(G.number_of_edges())

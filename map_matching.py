@@ -59,48 +59,34 @@ def get_gpsdata(taxi_df, gdf_edges, taxi_id, map_con=None, graph=None):
 
 
 if __name__ == '__main__':
-    taxi_df = pd.read_csv("data/cd_cleaned_taxi_data.csv")
-    cd_graph = download_map(30.6844, 30.6397, 104.0925, 104.0414)
+
+    # taxi_df = pd.read_csv("data/cleaned_taxi_data.csv")
+    # cd_graph = download_map(30.6844, 30.6397, 104.0925, 104.0414)
+    taxi_df = pd.read_csv('data/cleaned_taxi_data.csv', parse_dates=[3])
+    taxi_df = taxi_df.loc[(taxi_df['timestamp'] >= '2008-05-17 00:00:00') & (taxi_df['timestamp'] <= '2008-05-18 00:00:00')]
+    cd_graph = download_map()
     gdf_nodes, gdf_edges = ox.graph_to_gdfs(cd_graph)
     gdf_edges['road_id'] = range(len(gdf_edges))
     print(gdf_nodes)
     print(gdf_edges)
     map_con = in_mem_map(cd_graph)
-    print(map_con.graph)
-    print(map_con.index_edges)
     gdf_edges = gdf_edges.copy()
     gdf_edges = gdf_edges.sort_index()
 
     taxi_ids = taxi_df['taxi_id'].unique()
     start_time = time.time()
     parsed_trajectory_df = pd.DataFrame(columns=['taxi_id', 'lat', 'lon', 'timestamp', 'road_id'])
-    i = 801
-    while i < len(taxi_ids):
-    # for i in range(len(taxi_ids)):
+    for i in range(len(taxi_ids)):
         taxi_id = taxi_ids[i]
         print('Vehicle #%s: %s. Time spent: %s s' % (i, taxi_id, int(time.time() - start_time)))
         if i == 0:
             print('Saving header to file')
-            parsed_trajectory_df.to_csv('data/cd_parsed_trajectory_df.csv', index=False)  # save header to file
-        if i % 50 == 0 and i != 0:
+            parsed_trajectory_df.to_csv('data/parsed_trajectory_df.csv', index=False)  # save header to file
+        if i % 20 == 0 and i != 0:
             print('Appending result to file')
-            parsed_trajectory_df.to_csv('data/cd_parsed_trajectory_df.csv', mode='a', index=False, header=False)
+            parsed_trajectory_df.to_csv('data/parsed_trajectory_df.csv', mode='a', index=False, header=False)
             parsed_trajectory_df = pd.DataFrame(columns=['taxi_id', 'lat', 'lon', 'timestamp', 'road_id'])
             if i == 2000: break
         parsed_trajectory_df = parsed_trajectory_df.append(get_gpsdata(taxi_df, gdf_edges, taxi_id, map_con=map_con))
-        i += 1
     print('Appending result to file')
-    parsed_trajectory_df.to_csv('data/cd_parsed_trajectory_df.csv', mode='a', index=False, header=False)
-
-# print("States\n------")
-# print(states)
-# print("Nodes\n------")
-# print(nodes)
-# print("")
-# matcher.print_lattice_stats()
-
-# [(258758554, 258758555), (258758555, 258758552), (258758552, 258758553), (258758553, 258758550),
-# (258758550, 258758551), (258758551, 258758549), (258758549, 258758548),
-# (258758548, 258758547), (258758547, 258758546), (258758546, 1564279875), (1564279875, 65295340)]
-# for row in nodes:
-#     print(nodes_df.loc[row])
+    parsed_trajectory_df.to_csv('data/parsed_trajectory_df.csv', mode='a', index=False, header=False)
